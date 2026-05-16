@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
+
+# Future result files (keep the one referenced in the blog post)
+results/results_*.json
+!results/results_20260516_114446.json

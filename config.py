@@ -3,9 +3,14 @@ Experiment configuration.
 Change OLLAMA_MODEL to match your local setup.
 """
 
+import os
+
 # Ollama settings
 OLLAMA_BASE_URL = "http://localhost:11434"
-OLLAMA_MODEL = "llama3.1:8b" # Change this
+# Default model; override without editing this file via OLLAMA_MODEL env var,
+# e.g. `OLLAMA_MODEL=qwen2.5:14b python run_experiment.py`. Used to compare how
+# model capacity (esp. base64 decoding) affects the encoding defense.
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
 TEMPERATURE = 1.0 # Match the paper's setting
 
 # Experiment settings

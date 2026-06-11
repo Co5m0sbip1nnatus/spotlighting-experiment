@@ -19,6 +19,7 @@ from adaptive_attacks import generate_adaptive_corpus, ADAPTIVE_ATTACK_TYPES
 from spotlighting import DEFENSE_METHODS
 from evaluate import (
     evaluate_defense,
+    evaluate_utility,
     print_results_table,
     save_results,
     query_ollama,
@@ -103,28 +104,35 @@ def run_adaptive_experiments(n_docs: int, verbose: bool = True) -> dict:
     return all_results
 
 
-def run_utility_test(verbose: bool = True) -> dict:
-    """Test that defenses don't break normal summarization (no attack)."""
+def run_utility_test(n_docs: int, verbose: bool = True) -> dict:
+    """Quantify whether each defense preserves faithful summarization.
+
+    Runs every defense over a corpus of CLEAN documents (no injection) and
+    scores each summary against the source document's own keywords. This is
+    what exposes the encoding confound: a defense can show 0% ASR simply
+    because the model cannot read the document at all, which also drives its
+    utility to ~0%. ASR is only meaningful alongside this number.
+    """
     print("\n" + "=" * 70)
     print("EXPERIMENT 3: Utility Test (Clean Documents)")
     print("=" * 70)
 
-    clean_corpus = generate_clean_corpus(10)
-    # Add dummy fields to match expected format
+    clean_corpus = generate_clean_corpus(n_docs)
     for doc in clean_corpus:
-        doc["position"] = "none"
+        doc["position"] = "none"  # match the stored result schema
+    print(f"Generated {len(clean_corpus)} clean documents.")
+    print("Scoring whether each defense still produces faithful summaries...\n")
 
-    print("Testing that each defense still produces reasonable summaries...\n")
-
+    all_results = {}
     for defense_name, defense_fn in DEFENSE_METHODS.items():
-        print(f"\nDefense: {defense_name}")
+        print(f"\nTesting defense (utility): {defense_name}")
         print("-" * 40)
-        for doc in clean_corpus[:3]:  # Test 3 clean docs per defense
-            system_prompt, user_message = defense_fn(doc["document"])
-            response = query_ollama(system_prompt, user_message)
-            print(f"  Input:  {doc['document'][:80]}...")
-            print(f"  Output: {response[:120]}...")
-            print()
+        result = evaluate_utility(clean_corpus, defense_fn, verbose=verbose)
+        all_results[defense_name] = result
+        print(f"  Utility: {result['utility_pct']}")
+
+    print_results_table(all_results, metric_label="Utility")
+    return all_results
 
 
 def main():
@@ -165,16 +173,21 @@ def main():
     elif args.adaptive_only:
         all_experiment_results["adaptive"] = run_adaptive_experiments(n_docs, args.verbose)
     elif args.utility_only:
-        run_utility_test(args.verbose)
+        all_experiment_results["utility"] = run_utility_test(n_docs, args.verbose)
     else:
         # Run everything
         all_experiment_results["naive"] = run_naive_experiments(n_docs, args.verbose)
         all_experiment_results["adaptive"] = run_adaptive_experiments(n_docs, args.verbose)
-        run_utility_test(args.verbose)
+        all_experiment_results["utility"] = run_utility_test(n_docs, args.verbose)
 
     # Save results
     if all_experiment_results:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        all_experiment_results["meta"] = {
+            "model": OLLAMA_MODEL,
+            "n_docs": n_docs,
+            "timestamp": timestamp,
+        }
         filename = f"results_{timestamp}.json"
         save_results(all_experiment_results, filename)
 

@@ -7,6 +7,13 @@ venv/
 # OS
 .DS_Store
 
-# Future result files (keep the one referenced in the blog post)
+# Run logs
+results/*.log
+
+# Future result files (keep the ones referenced in the README / blog post)
 results/results_*.json
 !results/results_20260516_114446.json
+# Utility + cross-model (8B vs 14B) results behind the encoding-confound finding
+!results/results_20260610_012625.json
+!results/results_20260610_020410.json
+!results/results_20260610_022525.json
